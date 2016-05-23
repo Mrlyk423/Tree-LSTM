@@ -3,6 +3,9 @@
   Sentiment classification using a Binary Tree-LSTM.
 
 --]]
+require 'cutorch'
+cutorch.setDevice(1)
+
 
 local TreeLSTMSentiment = torch.class('treelstm.TreeLSTMSentiment')
 
@@ -73,14 +76,18 @@ function TreeLSTMSentiment:train(dataset)
 
       local loss = 0
       for j = 1, batch_size do
+        print '81'
         local idx = indices[i + j - 1]
         local sent = dataset.sents[idx]
         local tree = dataset.trees[idx]
 
         local inputs = self.emb:forward(sent)
+        print '87'
         local _, tree_loss = self.treelstm:forward(tree, inputs)
+        print '89'
         loss = loss + tree_loss
         local input_grad = self.treelstm:backward(tree, inputs, {zeros, zeros})
+        print '92'
         self.emb:backward(sent, input_grad)
       end
 

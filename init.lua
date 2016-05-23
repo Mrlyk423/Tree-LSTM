@@ -21,6 +21,8 @@ include('relatedness/TreeLSTMSim.lua')
 include('sentiment/LSTMSentiment.lua')
 include('sentiment/TreeLSTMSentiment.lua')
 
+include('relation/TreeLSTMRel.lua')
+
 printf = utils.printf
 
 -- global paths (modify if desired)
@@ -33,6 +35,10 @@ function share_params(cell, src)
   if torch.type(cell) == 'nn.gModule' then
     for i = 1, #cell.forwardnodes do
       local node = cell.forwardnodes[i]
+      local type1 = torch.type(cell.data)
+      local type2 = torch.type(src.forwardnodes[i].data.module)
+      --printf("cell %s\n", type1)
+      --printf("src %s\n", type2)
       if node.data.module then
         node.data.module:share(src.forwardnodes[i].data.module,
           'weight', 'bias', 'gradWeight', 'gradBias')

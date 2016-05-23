@@ -1,0 +1,30 @@
+Found Stanford POS Tagger - skip
+Found Stanford Parser - skip
+Found Glove vectors - skip
+Found SICK dataset - skip
+Found SST dataset - skip
+================================================================================
+Preprocessing SICK dataset
+================================================================================
+
+Dependency parsing /home/linyankai/tree-neural/treelstm/data/sick/train/a.txt
+
+Dependency parsing /home/linyankai/tree-neural/treelstm/data/sick/train/b.txt
+
+Dependency parsing /home/linyankai/tree-neural/treelstm/data/sick/dev/a.txt
+
+Dependency parsing /home/linyankai/tree-neural/treelstm/data/sick/dev/b.txt
+
+Dependency parsing /home/linyankai/tree-neural/treelstm/data/sick/test/a.txt
+
+Dependency parsing /home/linyankai/tree-neural/treelstm/data/sick/test/b.txt
+================================================================================
+Preprocessing Stanford Sentiment Treebank
+================================================================================
+
+Dependency parsing /home/linyankai/tree-neural/treelstm/data/sst/train/sents.txt
+
+Dependency parsing /home/linyankai/tree-neural/treelstm/data/sst/dev/sents.txt
+
+Dependency parsing /home/linyankai/tree-neural/treelstm/data/sst/test/sents.txt
+Writing labels for trees in /home/linyankai/tree-neural/treelstm/data/sst/train

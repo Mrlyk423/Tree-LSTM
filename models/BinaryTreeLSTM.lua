@@ -39,7 +39,9 @@ function BinaryTreeLSTM:new_leaf_module()
     h = nn.Tanh()(c)
   end
 
+
   local leaf_module = nn.gModule({input}, {c, h})
+  leaf_module:cuda()
   if self.leaf_module ~= nil then
     share_params(leaf_module, self.leaf_module)
   end
@@ -49,6 +51,7 @@ end
 function BinaryTreeLSTM:new_composer()
   local lc, lh = nn.Identity()(), nn.Identity()()
   local rc, rh = nn.Identity()(), nn.Identity()()
+
   local new_gate = function()
     return nn.CAddTable(){
       nn.Linear(self.mem_dim, self.mem_dim)(lh),
@@ -69,14 +72,24 @@ function BinaryTreeLSTM:new_composer()
   local h
   if self.gate_output then
     local o = nn.Sigmoid()(new_gate()) -- output gate
-    h = nn.CMulTable(){o, nn.Tanh()(c)}
+    h = nn.CMulTable(){o, nn.Tanh()(nn.CAddTable(){             -- memory cell
+      nn.CMulTable(){i, update},
+      nn.CMulTable(){lf, lc},
+      nn.CMulTable(){rf, rc}
+    })}
   else
-    h = nn.Tanh()(c)
+    h = nn.Tanh()(nn.CAddTable(){             -- memory cell
+      nn.CMulTable(){i, update},
+      nn.CMulTable(){lf, lc},
+      nn.CMulTable(){rf, rc}
+    })
   end
+
+
   local composer = nn.gModule(
     {lc, lh, rc, rh},
     {c, h})
-
+  composer:cuda()
   if self.composer ~= nil then
     share_params(composer, self.composer)
   end
@@ -89,6 +102,7 @@ function BinaryTreeLSTM:new_output_module()
   if self.output_module ~= nil then
     share_params(output_module, self.output_module)
   end
+  output_module:cuda()
   return output_module
 end
 
@@ -124,12 +138,14 @@ end
 
 function BinaryTreeLSTM:backward(tree, inputs, grad)
   local grad_inputs = torch.Tensor(inputs:size())
+  grad_inputs = grad_inputs:cuda()
   self:_backward(tree, inputs, grad, grad_inputs)
   return grad_inputs
 end
 
 function BinaryTreeLSTM:_backward(tree, inputs, grad, grad_inputs)
   local output_grad = self.mem_zeros
+  output_grad = output_grad:cuda()
   if tree.output ~= nil and tree.gold_label ~= nil then
     output_grad = tree.output_module:backward(
       tree.state[2], self.criterion:backward(tree.output, tree.gold_label))
@@ -139,13 +155,13 @@ function BinaryTreeLSTM:_backward(tree, inputs, grad, grad_inputs)
   if tree.num_children == 0 then
     grad_inputs[tree.leaf_idx] = tree.leaf_module:backward(
       inputs[tree.leaf_idx],
-      {grad[1], grad[2] + output_grad})
+      {grad[1], grad[2]+ tree.grad + output_grad})
     self:free_module(tree, 'leaf_module')
   else
     local lc, lh, rc, rh = self:get_child_states(tree)
     local composer_grad = tree.composer:backward(
       {lc, lh, rc, rh},
-      {grad[1], grad[2] + output_grad})
+      {grad[1], grad[2]+ tree.grad + output_grad})
     self:free_module(tree, 'composer')
 
     -- backward propagate to children

@@ -87,7 +87,7 @@ printf('num test  = %d\n', test_dataset.size)
 
 -- initialize model
 local model = model_class{
-  emb_vecs = vecs,
+  emb_vecs = vecs:cuda(),
   structure = model_structure,
   fine_grained = fine_grained,
   num_layers = args.layers,

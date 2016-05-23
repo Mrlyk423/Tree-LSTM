@@ -114,6 +114,87 @@ function treelstm.read_tree(parents, labels)
   return root
 end
 
+-- Relation Classification
+
+function treelstm.read_relation_dataset(dir, vocab, relation2id, constituency)
+  printf("read_relation_dataset\n")
+  local dataset = {}
+  dataset.vocab = vocab
+  if constituency then
+    dataset.trees = treelstm.read_trees(dir .. 'sents.cparents')
+  else
+    dataset.trees = treelstm.read_trees(dir .. 'sents.parents')
+  end
+  dataset.size = #dataset.trees
+  dataset.sents = {}
+  dataset.e1 = {}
+  dataset.e2 = {}
+  dataset.rel = {}
+
+
+  local file_sent = io.open(dir .. 'sents.toks', 'r')
+  local file_triple = io.open(dir .. 'triple.txt', 'r')
+  local line, line1
+  while true do
+    line = file_sent:read()
+    line1 = file_triple:read()
+    if line == nil then break end
+    local tokens = stringx.split(line)
+    local triple = stringx.split(line1)
+    local len = #tokens
+    local sent = torch.IntTensor(len)
+    dataset.e1[#dataset.e1 + 1] = 0
+    dataset.e2[#dataset.e2 + 1] = 0
+    for i = 1, len do
+      local token = tokens[i]
+      if token == triple[1] then
+        dataset.e1[#dataset.e1] = torch.IntTensor(len)
+        for j = 1, len do
+          dataset.e1[#dataset.e1][j] = j - i + 30
+          if j - i + 30 < 1 then
+            dataset.e1[#dataset.e1][j] = 1
+          end
+          if j - i + 30 > 60 then
+            dataset.e1[#dataset.e1][j] = 60
+          end
+        end
+      end
+      if token == triple[2] then
+        dataset.e2[#dataset.e2] = torch.IntTensor(len)
+        for j = 1, len do
+          dataset.e2[#dataset.e1][j] = j - i + 30
+          if j - i + 30 < 1 then
+            dataset.e2[#dataset.e1][j] = 1
+          end
+          if j - i + 30 > 60 then
+            dataset.e2[#dataset.e1][j] = 60
+          end
+        end
+      end
+     -- token = string.lower(token)
+      if vocab:contains(token) then
+        sent[i] = vocab:index(token)
+      else
+        sent[i] = vocab.size + 1
+      end
+    end
+    if dataset.e1[#dataset.e1] == 0 then
+      print (line)
+      print (line1)
+      error("can't find e1")
+    end
+    if dataset.e1[#dataset.e2] == 0 then
+      print (line)
+      print (line1)
+      error("can't find e2")
+    end
+    dataset.rel[#dataset.rel + 1] = relation2id[triple[3]]
+    dataset.sents[#dataset.sents + 1] = sent
+  end
+  file_sent:close()
+  file_triple:close()
+  return dataset
+ end 
 --[[
 
   Semantic Relatedness

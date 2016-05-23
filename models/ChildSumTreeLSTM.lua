@@ -29,6 +29,7 @@ function ChildSumTreeLSTM:new_composer()
   local child_c = nn.Identity()()
   local child_h = nn.Identity()()
   local child_h_sum = nn.Sum(1)(child_h)
+  -- local child_c_sum = nn.Sum(1)(child_c)
 
   local i = nn.Sigmoid()(
     nn.CAddTable(){
@@ -57,12 +58,24 @@ function ChildSumTreeLSTM:new_composer()
         nn.Linear(self.in_dim, self.mem_dim)(input),
         nn.Linear(self.mem_dim, self.mem_dim)(child_h_sum)
       })
-    h = nn.CMulTable(){o, nn.Tanh()(c)}
+    h = nn.CMulTable(){o, nn.Tanh()(nn.CAddTable(){
+      nn.CMulTable(){i, update},
+      nn.Sum(1)(nn.CMulTable(){f, child_c})
+    })}
   else
-    h = nn.Tanh()(c)
+    h = nn.Tanh()(nn.CAddTable(){
+      nn.CMulTable(){i, update},
+      nn.Sum(1)(nn.CMulTable(){f, child_c})
+    })
   end
-
+  -- local c = child_c_sum--nn.Sigmoid()(nn.Linear(self.in_dim, self.mem_dim)(input))
+  -- local h = nn.Sigmoid()(
+  --   nn.CAddTable(){
+  --     nn.Linear(self.in_dim, self.mem_dim)(input),
+  --     nn.Linear(self.mem_dim, self.mem_dim)(child_h_sum)
+  --   } )
   local composer = nn.gModule({input, child_c, child_h}, {c, h})
+  composer:cuda()
   if self.composer ~= nil then
     share_params(composer, self.composer)
   end
@@ -75,6 +88,7 @@ function ChildSumTreeLSTM:new_output_module()
   if self.output_module ~= nil then
     share_params(output_module, self.output_module)
   end
+  output_module:cuda()
   return output_module
 end
 
@@ -86,6 +100,8 @@ function ChildSumTreeLSTM:forward(tree, inputs)
   end
   local child_c, child_h = self:get_child_states(tree)
   self:allocate_module(tree, 'composer')
+ -- print (torch.type(child_h))
+ -- print (torch.type(child_h:cuda()))
   tree.state = tree.composer:forward{inputs[tree.idx], child_c, child_h}
 
   if self.output_module ~= nil then
@@ -100,12 +116,14 @@ end
 
 function ChildSumTreeLSTM:backward(tree, inputs, grad)
   local grad_inputs = torch.Tensor(inputs:size())
+  grad_inputs = grad_inputs:cuda()
   self:_backward(tree, inputs, grad, grad_inputs)
   return grad_inputs
 end
 
 function ChildSumTreeLSTM:_backward(tree, inputs, grad, grad_inputs)
   local output_grad = self.mem_zeros
+  output_grad = output_grad:cuda()
   if tree.output ~= nil and tree.gold_label ~= nil then
     output_grad = tree.output_module:backward(
       tree.state[2], self.criterion:backward(tree.output, tree.gold_label))
@@ -155,9 +173,13 @@ function ChildSumTreeLSTM:get_child_states(tree)
   if tree.num_children == 0 then
     child_c = torch.zeros(1, self.mem_dim)
     child_h = torch.zeros(1, self.mem_dim)
+    child_c = child_c:cuda()
+    child_h = child_h:cuda()
   else
     child_c = torch.Tensor(tree.num_children, self.mem_dim)
     child_h = torch.Tensor(tree.num_children, self.mem_dim)
+    child_c = child_c:cuda()
+    child_h = child_h:cuda()
     for i = 1, tree.num_children do
        child_c[i], child_h[i] = unpack(tree.children[i].state)
     end

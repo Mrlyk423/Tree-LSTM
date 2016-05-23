@@ -57,3 +57,31 @@ function Tree:depth_first_preorder()
   depth_first_preorder(self, nodes)
   return nodes
 end
+
+local function debug(tree, depth, sent, vocab) 
+  for i = 1, depth do 
+    printf("\t")
+  end
+  if (tree.ok[1]) then
+    printf("1\t")
+  else
+    printf("0\t")
+  end
+  if (tree.ok[2]) then
+    printf("1\t")
+  else
+    printf("0\t")
+  end
+  if tree.num_children == 0 then
+    printf("%s\n", vocab:token(sent[tree.leaf_idx]))
+  else
+    printf("Node\n")
+  end
+  for i = 1, tree.num_children do
+      debug(tree.children[i], depth+1, sent, vocab)
+  end
+end
+function Tree:debug(sent, vocab)
+  debug(self, 0, sent, vocab)
+end  
+
